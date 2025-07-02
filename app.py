@@ -40,7 +40,7 @@
 #         ingest_pdfs()
 #         st.success("Reindex complete!")
 
-#     st.markdown("### ✍️ Fill in the details below:")
+#     st.markdown("### Fill in the details below:")
 
 #     user_inputs = {}
 #     with st.form("input_form"):
@@ -90,7 +90,7 @@
 #                     st.session_state.edit_mode = False
 #         else:
 #             st.markdown(st.session_state.enriched_text)
-#             st.button("✏️ Edit Draft", on_click=lambda: st.session_state.update(edit_mode=True))
+#             st.button(" Edit Draft", on_click=lambda: st.session_state.update(edit_mode=True))
 
 #         # ─── Sources Display ─────────────────────────────────────────
 #         st.markdown("### Sources Used")
