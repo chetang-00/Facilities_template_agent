@@ -1,0 +1,28 @@
+{
+  "nsf_data_summary": {
+    "total_chunks": 43,
+    "unique_sources": 2
+  },
+  "improved_drift_analysis": {
+    "New York University high performance computing": {
+      "id_stability": 100.0,
+      "id_drift": 0.0,
+      "source_stability": 100.0,
+      "source_drift": 0.0,
+      "content_stability": 71.9,
+      "content_drift": 28.1,
+      "successful_runs": 5,
+      "total_runs": 5
+    },
+    "COSMOS Wireless Testbed HPC clusters": {
+      "id_stability": 100.0,
+      "id_drift": 0.0,
+      "source_stability": 100.0,
+      "source_drift": 0.0,
+      "content_stability": 63.86,
+      "content_drift": 36.14,
+      "successful_runs": 5,
+      "total_runs": 5
+    }
+  }
+}

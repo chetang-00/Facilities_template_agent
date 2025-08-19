@@ -13,14 +13,13 @@ SECTION_LABELS = [
 ]
 
 
-def generate_enriched_response(user_inputs, config_path="src/config.yaml"):
+def generate_enriched_response(user_inputs, selected_types=None, config_path="src/config.yaml"):
     llm = get_llm(config_path)
-    section_outputs = {}  # <-- dict instead of final_output string!
+    section_outputs = {} 
     sources_used = []
 
-    # Check if all sections are empty
     if all(not user_inputs.get(section, "").strip() for section in SECTION_LABELS):
-        return ({}, [])  # Return empty dict
+        return ({}, [])
 
     for section in SECTION_LABELS:
         user_text = user_inputs.get(section, "").strip()
@@ -29,7 +28,7 @@ def generate_enriched_response(user_inputs, config_path="src/config.yaml"):
 
         query = f"{section}: {user_text}"
 
-        retrieved = search_similar_chunks(query, k=5, config_path=config_path)
+        retrieved = search_similar_chunks(query, k=5, selected_types=selected_types, config_path=config_path)
         retrieved_chunks = [
             f"{doc.page_content}\n(Source: {doc.metadata.get('source', 'unknown')})"
             for doc in retrieved
@@ -62,12 +61,11 @@ def generate_enriched_response(user_inputs, config_path="src/config.yaml"):
         result = llm.invoke(prompt)
         response_text = result.content.strip()
 
-        # Save each section individually!
         section_outputs[section] = response_text
 
         cited_sources = [src for src in source_refs if f"(Source: {src})" in response_text]
         sources_used.extend(cited_sources)
-        # Only keep web links that are actually cited in the response text
+
         cited_web_links = [
             link for link in web_links if f"(Web Source: {link})" in response_text
         ]

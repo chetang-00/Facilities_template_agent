@@ -1,0 +1,40 @@
+{
+  "nsf_data_summary": {
+    "total_chunks": 43,
+    "unique_sources": 2
+  },
+  "semantic_analysis": {
+    "New York University high performance computing": {
+      "retrieved_count": 5,
+      "unique_sources": 1,
+      "semantic_overlap": 64.88,
+      "source_diversity": 20.0,
+      "sources": [
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf"
+      ],
+      "source_distribution": {
+        "Panwar_NSF Proposal-2312847_NSF.pdf": 5
+      }
+    },
+    "COSMOS Wireless Testbed HPC clusters": {
+      "retrieved_count": 5,
+      "unique_sources": 1,
+      "semantic_overlap": 54.82,
+      "source_diversity": 20.0,
+      "sources": [
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf",
+        "Panwar_NSF Proposal-2312847_NSF.pdf"
+      ],
+      "source_distribution": {
+        "Panwar_NSF Proposal-2312847_NSF.pdf": 5
+      }
+    }
+  }
+}
