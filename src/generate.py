@@ -2,7 +2,8 @@ from src.utils import get_llm, limited_web_search, limited_web_search_specific_s
 from src.retriever import search_similar_chunks
 from prompt.prompt_template import PROMPT_TEMPLATE
 
-SECTION_LABELS = [
+# Define sections for different funding agencies
+NSF_SECTION_LABELS = [
     "1. Project Title",
     "2. Research Space and Facilities",
     "3. Core Instrumentation",
@@ -12,16 +13,39 @@ SECTION_LABELS = [
     "6. Special Infrastructure"
 ]
 
+NIH_SECTION_LABELS = [
+    "1. Project Title",
+    "2. Research Space and Facilities",
+    "3. Core Instrumentation",
+    "4. Computing and Data Resources",
+    "5a. Internal Facilities (NYU)",
+    "5b. External Facilities (Other Institutions)",
+    "6. Special Infrastructure",
+    "7. Equipment"
+]
+
+def get_section_labels_for_agency(selected_types):
+    """Get the appropriate section labels based on selected funding agency"""
+    if not selected_types:
+        return []  # Return empty list when no agency is selected
+    
+    if "NIH" in selected_types:
+        return NIH_SECTION_LABELS
+    else:
+        return NSF_SECTION_LABELS
 
 def generate_enriched_response(user_inputs, selected_types=None, config_path="src/config.yaml"):
     llm = get_llm(config_path)
     section_outputs = {} 
     sources_used = []
 
-    if all(not user_inputs.get(section, "").strip() for section in SECTION_LABELS):
+    # Get the appropriate section labels based on selected agency
+    section_labels = get_section_labels_for_agency(selected_types)
+
+    if all(not user_inputs.get(section, "").strip() for section in section_labels):
         return ({}, [])
 
-    for section in SECTION_LABELS:
+    for section in section_labels:
         user_text = user_inputs.get(section, "").strip()
         if not user_text:
             continue
@@ -48,8 +72,6 @@ def generate_enriched_response(user_inputs, selected_types=None, config_path="sr
             )
         else:
             web_content, web_links = limited_web_search(query, config_path=config_path)
-
-        # web_content, web_links = limited_web_search(query, config_path=config_path)
 
         prompt = PROMPT_TEMPLATE.format(
             section=section,

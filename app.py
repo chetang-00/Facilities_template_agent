@@ -1,6 +1,6 @@
 import streamlit as st
 from src.pdf_ingest import ingest_pdfs
-from src.generate import generate_enriched_response, SECTION_LABELS
+from src.generate import generate_enriched_response, get_section_labels_for_agency
 from src.utils import get_llm
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
@@ -8,9 +8,10 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from io import BytesIO
+from docx import Document
 
 # Page Config ────────────────────────────────
-st.set_page_config(page_title="Facilities Draft Generator", layout="wide")
+st.set_page_config(page_title="Grant Facilities Draft Generator", layout="wide")
 
 # Utility Function ───────────────────────────
 def build_full_draft(sections_dict, section_labels):
@@ -67,6 +68,35 @@ def generate_pdf(sections_dict, section_labels, sources):
     buffer.seek(0)
     return buffer
 
+def generate_word_doc(sections_dict, section_labels, sources):
+    """Generate a Word document from the sections and sources"""
+    doc = Document()
+    
+    # Add sections (no title)
+    for section_label in section_labels:
+        section_text = sections_dict.get(section_label, "").strip()
+        if section_text:
+            # Add section heading
+            doc.add_heading(section_label, level=1)
+            
+            # Add section content
+            doc.add_paragraph(section_text)
+            
+            # Add some spacing
+            doc.add_paragraph()
+    
+    # Add sources if available
+    if sources:
+        doc.add_heading("Sources Used", level=1)
+        for source in sources:
+            doc.add_paragraph(f"• {source}", style='List Bullet')
+    
+    # Save to BytesIO
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
 # Session State Init ─────────────────────────
 if "conversation_chain" not in st.session_state:
     memory = ConversationBufferMemory()
@@ -88,6 +118,9 @@ if "final_draft" not in st.session_state:
 if "sources" not in st.session_state:
     st.session_state.sources = []
 
+if "section_labels" not in st.session_state:
+    st.session_state.section_labels = []
+
 # undo functionality session state
 if "section_edit_history" not in st.session_state:
     st.session_state.section_edit_history = {}
@@ -103,44 +136,60 @@ left, right = st.columns([1, 2])
 
 # Form ─────────────────────────────────
 with left:
-    st.title("Facilities Section Form")
+    st.title("Grant Facilities Section Form")
 
     if st.button("Reindex PDFs in `/data` folder"):
         ingest_pdfs()
         st.success("Reindex complete!")
     
     st.markdown("### Select Files to Search:")
-    nih_selected = st.checkbox("NIH Files", value=False)
-    nsf_selected = st.checkbox("NSF Files", value=False)
+    selected_agency = st.radio(
+        "Choose one file type by Sponsor:",
+        options=["NSF", "NIH"],
+        index=None,
+        help="Select the file type to determine which sections to include"
+    )
 
-    st.markdown("### Fill in the details below:")
+    # Get section labels based on selected agency
+    selected_types = []
+    if selected_agency == "NIH":
+        selected_types.append("NIH")
+    elif selected_agency == "NSF":
+        selected_types.append("NSF")
+    
+    section_labels = get_section_labels_for_agency(selected_types)
 
-    user_inputs = {}
-    with st.form("input_form"):
-        for label in SECTION_LABELS:
-            user_inputs[label] = st.text_area(label, height=100)
-        submitted = st.form_submit_button("Generate Section")
+        # Only show form if a file type is selected
+    if selected_agency:
+        st.markdown("### Fill in the details below:")
+        
+        user_inputs = {}
+        with st.form("input_form"):
+            for label in section_labels:
+                # Add some CSS to ensure labels are visible
+                st.markdown(f"<div style=' color: black;'>{label}</div>", unsafe_allow_html=True)
+                user_inputs[label] = st.text_area(label, height=100, key=f"input_{label}", label_visibility="hidden")
+            submitted = st.form_submit_button("Generate Section")
+    else:
+        
+        user_inputs = {}
+        submitted = False
 
     if submitted:
-        if not nih_selected and not nsf_selected:
-            st.error("Please select at least one file type (NIH or NSF) before generating.")
+        if not selected_agency:
+            st.error("Please select files to search before generating.")
         else:
             with st.spinner("Generating and validating..."):
-
-                selected_types = []
-                if nih_selected:
-                    selected_types.append("NIH")
-                if nsf_selected:
-                    selected_types.append("NSF")
                 
                 section_outputs, sources = generate_enriched_response(user_inputs, selected_types=selected_types)
 
             if not section_outputs:
-                st.warning("Please fill out the form to generate your NSF Facilities Template.")
+                st.warning("Please fill out the form to generate your Facilities Template.")
             else:
                 st.session_state.enriched_sections = section_outputs
-                st.session_state.final_draft = build_full_draft(section_outputs, SECTION_LABELS)
+                st.session_state.final_draft = build_full_draft(section_outputs, section_labels)
                 st.session_state.sources = sources
+                st.session_state.section_labels = section_labels  # Store section labels
                 st.session_state.draft_generated = True
                 
                 for section, content in section_outputs.items():
@@ -161,39 +210,64 @@ with right:
         if "show_filename_input" not in st.session_state:
             st.session_state.show_filename_input = False
         
-        # Generate PDF
-        pdf_buffer = generate_pdf(st.session_state.enriched_sections, SECTION_LABELS, st.session_state.sources)
+        # Generate PDF and Word documents
+        pdf_buffer = generate_pdf(st.session_state.enriched_sections, st.session_state.section_labels, st.session_state.sources)
+        word_buffer = generate_word_doc(st.session_state.enriched_sections, st.session_state.section_labels, st.session_state.sources)
         
-        # Create download button
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
+        # Create download buttons
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
             if st.button("Download as PDF", use_container_width=True, type="primary"):
-                st.session_state.show_filename_input = True
+                st.session_state.show_filename_input = "pdf"
+        with col3:
+            if st.button("Download as Word", use_container_width=True, type="primary"):
+                st.session_state.show_filename_input = "word"
         
         if st.session_state.show_filename_input:
             st.markdown("---")
-            default_filename = "nsf_facilities_template"
-            filename = st.text_input(
-                "Enter filename (without .pdf extension):",
-                value=default_filename,
-                help="The PDF will be saved with this name"
-            )
+            default_filename = "facilities_template"
             
-            # download button
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                st.download_button(
-                    label="Download PDF",
-                    data=pdf_buffer.getvalue(),
-                    file_name=f"{filename}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="secondary"
+            if st.session_state.show_filename_input == "pdf":
+                filename = st.text_input(
+                    "Enter filename (without .pdf extension):",
+                    value=default_filename,
+                    help="The PDF will be saved with this name"
                 )
+                
+                # download PDF button
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.download_button(
+                        label="Download PDF",
+                        data=pdf_buffer.getvalue(),
+                        file_name=f"{filename}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="secondary"
+                    )
+            
+            elif st.session_state.show_filename_input == "word":
+                filename = st.text_input(
+                    "Enter filename (without .docx extension):",
+                    value=default_filename,
+                    help="The Word document will be saved with this name"
+                )
+                
+                # download Word button
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.download_button(
+                        label="Download Word Document",
+                        data=word_buffer.getvalue(),
+                        file_name=f"{filename}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                        type="secondary"
+                    )
         
         st.markdown("### Final Draft (Sections)")
 
-        for section in SECTION_LABELS:
+        for section in st.session_state.section_labels:
             text = st.session_state.enriched_sections.get(section, "")
 
             if not text:
@@ -227,7 +301,7 @@ with right:
                         st.session_state.section_edit_messages[section] = True
 
                         st.session_state.final_draft = build_full_draft(
-                            st.session_state.enriched_sections, SECTION_LABELS
+                            st.session_state.enriched_sections, st.session_state.section_labels
                         )
                         st.session_state.conversation_chain.memory.chat_memory.clear()
                         st.session_state.conversation_chain.memory.chat_memory.add_user_message(
@@ -261,7 +335,7 @@ with right:
                             
                             # Update final draft
                             st.session_state.final_draft = build_full_draft(
-                                st.session_state.enriched_sections, SECTION_LABELS
+                                st.session_state.enriched_sections, st.session_state.section_labels
                             )
                             
                             # Update conversation memory
@@ -288,7 +362,7 @@ with right:
 
     if followup := st.chat_input("Ask a follow-up question..."):
         if not st.session_state.draft_generated:
-            bot_reply = "Please fill out the form to begin generating your NSF Facilities Template."
+            bot_reply = "Please fill out the form to begin generating your Facilities Template."
         else:
             st.session_state.conversation_chain.memory.chat_memory.clear()
             st.session_state.conversation_chain.memory.chat_memory.add_user_message(
